@@ -1,0 +1,33 @@
+{
+  "name": "codex-seoul-hackathon-starter",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck && npm run lint",
+    "check": "bash scripts/check-readiness.sh",
+    "deploy:aws": "bash scripts/deploy-aws.sh",
+    "budget:aws": "bash scripts/setup-aws-budget.sh",
+    "cleanup:aws": "bash scripts/cleanup-aws.sh"
+  },
+  "dependencies": {
+    "next": "16.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "eslint": "^9.35.0",
+    "eslint-config-next": "16.3.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

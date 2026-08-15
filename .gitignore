@@ -1,0 +1,30 @@
+# dependencies
+/node_modules
+
+# Next.js
+/.next
+/out
+
+# local configuration and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# logs and coverage
+*.log
+/coverage
+*.tsbuildinfo
+
+# editors and OS
+.DS_Store
+.idea
+.vscode
+
+# Python worker caches
+__pycache__/
+*.py[cod]
+.venv/
+
+# generated deployment data
+.deploy/

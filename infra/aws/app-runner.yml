@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Codex Seoul hackathon starter on AWS App Runner
+
+Parameters:
+  AppName:
+    Type: String
+    Default: codex-ready
+    AllowedPattern: "[A-Za-z0-9][A-Za-z0-9-_]{3,39}"
+  ImageIdentifier:
+    Type: String
+  RunpodEndpointId:
+    Type: String
+    Default: ""
+  RunpodApiKeyParameterArn:
+    Type: String
+    Default: ""
+
+Conditions:
+  HasRunpodSecret: !Not [!Equals [!Ref RunpodApiKeyParameterArn, ""]]
+
+Resources:
+  EcrAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AppName}-apprunner-ecr-${AWS::Region}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: build.apprunner.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess
+
+  AppInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AppName}-runtime-${AWS::Region}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: tasks.apprunner.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ReadHackathonSecrets
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AppName}/*"
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub "ssm.${AWS::Region}.amazonaws.com"
+
+  AutoScaling:
+    Type: AWS::AppRunner::AutoScalingConfiguration
+    Properties:
+      AutoScalingConfigurationName: !Sub "${AppName}-small"
+      MaxConcurrency: 25
+      MaxSize: 2
+      MinSize: 1
+      Tags:
+        - Key: Project
+          Value: !Ref AppName
+
+  Service:
+    Type: AWS::AppRunner::Service
+    Properties:
+      ServiceName: !Ref AppName
+      AutoScalingConfigurationArn: !GetAtt AutoScaling.AutoScalingConfigurationArn
+      SourceConfiguration:
+        AutoDeploymentsEnabled: false
+        AuthenticationConfiguration:
+          AccessRoleArn: !GetAtt EcrAccessRole.Arn
+        ImageRepository:
+          ImageIdentifier: !Ref ImageIdentifier
+          ImageRepositoryType: ECR
+          ImageConfiguration:
+            Port: "3000"
+            RuntimeEnvironmentVariables:
+              - Name: NODE_ENV
+                Value: production
+              - Name: RUNPOD_ENDPOINT_ID
+                Value: !Ref RunpodEndpointId
+              - Name: RUNPOD_TIMEOUT_MS
+                Value: "90000"
+            RuntimeEnvironmentSecrets: !If
+              - HasRunpodSecret
+              - - Name: RUNPOD_API_KEY
+                  Value: !Ref RunpodApiKeyParameterArn
+              - !Ref AWS::NoValue
+      InstanceConfiguration:
+        Cpu: "1 vCPU"
+        Memory: "2 GB"
+        InstanceRoleArn: !GetAtt AppInstanceRole.Arn
+      HealthCheckConfiguration:
+        Protocol: HTTP
+        Path: /api/health
+        Interval: 10
+        Timeout: 5
+        HealthyThreshold: 1
+        UnhealthyThreshold: 5
+      Tags:
+        - Key: Project
+          Value: !Ref AppName
+        - Key: ManagedBy
+          Value: codex-ready
+
+Outputs:
+  ServiceArn:
+    Value: !GetAtt Service.ServiceArn
+  ServiceUrl:
+    Value: !Sub "https://${Service.ServiceUrl}"
