@@ -1,31 +1,23 @@
 {
-  "name": "codex-seoul-hackathon-starter",
+  "name": "codex-seoul-hackathon-workspace",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && npm run lint",
+    "dev": "bash scripts/with-env.sh npm --prefix frontend run dev",
+    "dev:api": "python3 -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000",
+    "build": "bash scripts/with-env.sh npm --prefix frontend run build",
+    "start": "bash scripts/with-env.sh npm --prefix frontend run start",
+    "lint": "npm --prefix frontend run lint",
+    "typecheck": "npm --prefix frontend run typecheck",
+    "test:web": "npm --prefix frontend run test",
+    "test:api": "python3 -m pytest backend/tests",
+    "test": "npm run test:web && npm run test:api",
+    "compose:up": "docker compose up --build",
+    "compose:down": "docker compose down",
     "check": "bash scripts/check-readiness.sh",
     "deploy:aws": "bash scripts/deploy-aws.sh",
     "budget:aws": "bash scripts/setup-aws-budget.sh",
     "cleanup:aws": "bash scripts/cleanup-aws.sh"
-  },
-  "dependencies": {
-    "next": "16.3.1",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
-  },
-  "devDependencies": {
-    "@types/node": "^24.3.0",
-    "@types/react": "^19.1.12",
-    "@types/react-dom": "^19.1.9",
-    "eslint": "^9.35.0",
-    "eslint-config-next": "16.3.1",
-    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=22.13.0"

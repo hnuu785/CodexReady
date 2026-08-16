@@ -1,4 +1,4 @@
-import { RunpodConsole } from "@/components/runpod-console";
+import { InferenceConsole } from "@/components/inference-console";
 
 const phases = [
   { time: "10:10", title: "문제 고정", detail: "대상 사용자 · 가장 아픈 순간 · 성공 기준" },
@@ -44,7 +44,7 @@ export default function Home() {
               <div><span>BUILD</span><strong>2</strong></div>
               <div><span>INSIGHT</span><strong>2</strong></div>
             </div>
-            <p>웹 · API · 컨테이너 · AWS · RunPod 준비 완료</p>
+            <p>Next.js · FastAPI · Docker · RunPod 준비 완료</p>
           </aside>
         </div>
       </section>
@@ -81,19 +81,19 @@ export default function Home() {
       <section className="gpu-section">
         <div className="shell gpu-grid">
           <div>
-            <p className="eyebrow mint">OPTIONAL GPU LANE</p>
-            <h2>무거운 AI 작업은<br />RunPod에 맡기세요.</h2>
+            <p className="eyebrow mint">LOCAL-FIRST AI BACKEND</p>
+            <h2>로컬에서 검증하고,<br />GPU는 선택하세요.</h2>
             <p>
-              브라우저에 키를 노출하지 않고 서버를 통해 RunPod Serverless 워커를
-              호출합니다. GPU가 필요 없는 팀은 이 기능을 그대로 건너뛰어도 됩니다.
+              Next.js가 FastAPI를 호출하고, FastAPI가 mock·로컬 PyTorch·RunPod 중
+              실행 환경에 맞는 추론 방식을 선택합니다.
             </p>
             <ul>
-              <li>서버 전용 API 키</li>
-              <li>동기 요청과 타임아웃 처리</li>
-              <li>0개 상시 워커로 크레딧 보호</li>
+              <li>GPU 없는 로컬 테스트</li>
+              <li>독립적인 API 문서와 테스트</li>
+              <li>선택형 RunPod GPU</li>
             </ul>
           </div>
-          <RunpodConsole />
+          <InferenceConsole />
         </div>
       </section>
 

@@ -71,7 +71,11 @@ IMAGE_TAG="${IMAGE_TAG:-${GIT_TAG}-$(date -u +%H%M%S)}"
 TAGGED_IMAGE="${ECR_URI}:${IMAGE_TAG}"
 
 echo "AWS용 컨테이너를 빌드합니다: ${IMAGE_TAG}"
-docker build --platform linux/amd64 -t "$TAGGED_IMAGE" "$ROOT_DIR"
+docker build \
+  --platform linux/amd64 \
+  -f "$ROOT_DIR/infra/docker/Dockerfile.production" \
+  -t "$TAGGED_IMAGE" \
+  "$ROOT_DIR"
 
 echo "컨테이너를 Amazon ECR에 업로드합니다."
 aws ecr get-login-password --region "$AWS_REGION" \
@@ -108,6 +112,7 @@ aws cloudformation deploy \
   --parameter-overrides \
     AppName="$APP_NAME" \
     ImageIdentifier="$IMAGE_IDENTIFIER" \
+    InferenceMode="${INFERENCE_MODE:-mock}" \
     RunpodEndpointId="${RUNPOD_ENDPOINT_ID:-}" \
     RunpodApiKeyParameterArn="$RUNPOD_PARAMETER_ARN" \
   --tags Project="$APP_NAME" ManagedBy=codex-ready

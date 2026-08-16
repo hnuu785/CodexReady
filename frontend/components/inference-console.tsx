@@ -8,8 +8,8 @@ type RequestState =
   | { status: "success"; result: unknown }
   | { status: "error"; message: string };
 
-export function RunpodConsole() {
-  const [prompt, setPrompt] = useState("Codex Seoul GPU check");
+export function InferenceConsole() {
+  const [prompt, setPrompt] = useState("Codex Seoul local backend check");
   const [state, setState] = useState<RequestState>({ status: "idle" });
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -18,14 +18,14 @@ export function RunpodConsole() {
     setState({ status: "loading" });
 
     try {
-      const response = await fetch("/api/runpod", {
+      const response = await fetch("/api/inference", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ prompt: prompt.trim() })
       });
-      const body = (await response.json()) as { result?: unknown; error?: string };
-      if (!response.ok) throw new Error(body.error ?? "RunPod 요청에 실패했습니다.");
-      setState({ status: "success", result: body.result });
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "추론 요청에 실패했습니다.");
+      setState({ status: "success", result: body });
     } catch (error) {
       setState({
         status: "error",
@@ -36,8 +36,11 @@ export function RunpodConsole() {
 
   return (
     <form className="console" onSubmit={submit}>
-      <div className="console-top"><span><b /> RUNPOD CONSOLE</span><small>SERVER-SIDE PROXY</small></div>
-      <label htmlFor="prompt">워커에 보낼 입력</label>
+      <div className="console-top">
+        <span><b /> FASTAPI CONSOLE</span>
+        <small>MOCK · LOCAL · RUNPOD</small>
+      </div>
+      <label htmlFor="prompt">백엔드에 보낼 입력</label>
       <textarea
         id="prompt"
         value={prompt}
@@ -46,11 +49,11 @@ export function RunpodConsole() {
         rows={4}
       />
       <button disabled={state.status === "loading"} type="submit">
-        {state.status === "loading" ? "GPU 깨우는 중…" : "테스트 요청 보내기 →"}
+        {state.status === "loading" ? "처리하는 중…" : "테스트 요청 보내기 →"}
       </button>
       <div className={`console-output ${state.status}`} aria-live="polite">
-        {state.status === "idle" && "RUNPOD_API_KEY와 ENDPOINT_ID를 설정하면 여기서 바로 테스트할 수 있습니다."}
-        {state.status === "loading" && "첫 요청은 콜드 스타트 때문에 잠시 걸릴 수 있습니다."}
+        {state.status === "idle" && "기본 mock 모드에서는 GPU나 API 키 없이 전체 요청 흐름을 테스트할 수 있습니다."}
+        {state.status === "loading" && "FastAPI가 선택된 추론 provider를 호출하고 있습니다."}
         {state.status === "error" && state.message}
         {state.status === "success" && <pre>{JSON.stringify(state.result, null, 2)}</pre>}
       </div>

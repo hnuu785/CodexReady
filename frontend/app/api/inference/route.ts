@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runSync, RunpodConfigurationError } from "@/lib/runpod";
+import { BackendError, requestInference } from "@/lib/backend";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -25,12 +25,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await runSync({ prompt: prompt.trim() });
-    return NextResponse.json({ result });
+    const result = await requestInference(prompt.trim());
+    return NextResponse.json(result);
   } catch (error) {
-    const status = error instanceof RunpodConfigurationError ? 503 : 502;
-    const message = error instanceof Error ? error.message : "RunPod 요청에 실패했습니다.";
-    console.error("RunPod proxy error", { name: error instanceof Error ? error.name : "Unknown" });
+    const status = error instanceof BackendError ? error.status : 502;
+    const message = error instanceof Error ? error.message : "추론 요청에 실패했습니다.";
+    console.error("FastAPI proxy error", {
+      name: error instanceof Error ? error.name : "Unknown",
+      status
+    });
     return NextResponse.json({ error: message }, { status });
   }
 }

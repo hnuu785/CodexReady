@@ -1,11 +1,13 @@
 # Codex Community Hackathon Seoul — Developer Starter
 
-처음 만난 4인 팀이 당일 바로 제품 개발을 시작하고 공개 URL까지 만들 수 있는 스타터입니다. 기본 웹 앱과 서버 API는 하나의 Next.js 프로젝트에 있고, AWS ECS Express Mode에 컨테이너로 배포합니다. GPU가 필요한 팀은 RunPod Serverless 워커를 선택적으로 연결할 수 있습니다.
+처음 만난 4인 팀이 당일 바로 제품 개발을 시작하고 공개 URL까지 만들 수 있는 스타터입니다. 화면과 공개 프록시는 Next.js, 추론 API는 FastAPI로 분리되어 있으며 Docker Compose 또는 각 개발 서버로 실행할 수 있습니다. GPU가 필요한 팀은 RunPod Serverless 워커를 선택적으로 연결합니다.
 
 ## 준비된 것
 
 - 반응형 Next.js 웹 앱과 `/api/health`
-- 브라우저에 키를 노출하지 않는 `/api/runpod` 서버 프록시
+- `mock`, 로컬 PyTorch, RunPod provider를 선택할 수 있는 FastAPI
+- 브라우저에 내부 주소와 키를 노출하지 않는 `/api/inference` 프록시
+- Next.js와 FastAPI를 분리 실행하는 Docker Compose
 - AWS ECS Express Mode + ECR 배포 자동화
 - AWS 월 사용량 20달러 예산 알림 자동화
 - RunPod GPU 확인용 Serverless 워커
@@ -15,35 +17,117 @@
 ## 구조
 
 ```text
-브라우저
-  └─ AWS ECS Express Mode (Next.js 웹 + API)
-       ├─ /api/health
-       └─ /api/runpod ── 선택 사항 ── RunPod Serverless GPU Worker
+frontend/   Next.js 앱, Node 의존성, 독립 Dockerfile
+backend/    FastAPI 앱, Python 테스트, 독립 Dockerfile
+infra/      통합 제품 이미지, AWS, 선택형 RunPod 배포 정의
+scripts/    로컬 준비, 배포, 예산, 정리 명령
 ```
 
-AWS만 써도 앱은 정상 동작합니다. RunPod는 이미지 생성, 음성 처리, 오픈소스 모델 추론처럼 GPU가 실제로 필요할 때만 연결하세요.
+```text
+브라우저
+  └─ Next.js :3000
+       ├─ /api/health
+       └─ /api/inference
+            └─ FastAPI :8000
+                 ├─ mock (기본값)
+                 ├─ local PyTorch (선택 사항)
+                 └─ RunPod Serverless GPU Worker (선택 사항)
+```
 
-## 1. 로컬에서 시작 — 약 3분
+로컬 Compose와 각 서비스의 Dockerfile은 Next.js와 FastAPI를 독립적으로 실행합니다. 현재 AWS 배포는 비용과 운영 복잡도를 줄이기 위해 `infra/docker/Dockerfile.production`에서 두 프로세스를 하나의 ECS 작업에 함께 넣습니다. 서비스별 확장이 필요해지면 기존 독립 Dockerfile을 사용해 두 ECS 서비스로 분리할 수 있습니다.
 
-필요한 도구는 Node.js 22.13+, Git, Docker입니다.
+## 1. 로컬에서 시작
+
+필요한 도구는 Node.js 22.13+, Python 3.13+, Git입니다. Compose 방식에는 Docker Desktop도 필요합니다.
+
+### Docker Compose로 실행
+
+```bash
+cp -n .env.example .env.local
+npm run compose:up
+```
+
+Compose는 기본 `mock` 모드로 시작하므로 GPU와 외부 API 키가 필요 없습니다.
+
+- 웹: [http://localhost:3000](http://localhost:3000)
+- 통합 상태: [http://localhost:3000/api/health](http://localhost:3000/api/health)
+- FastAPI 상태: [http://localhost:8000/health](http://localhost:8000/health)
+- Swagger 문서: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+종료할 때는 `npm run compose:down`을 실행합니다.
+
+3000번 또는 8000번 포트를 이미 사용 중이면 외부 포트만 바꿀 수 있습니다.
+
+```bash
+FRONTEND_PORT=3100 BACKEND_PORT=8100 npm run compose:up
+```
+
+서비스별 제품 이미지는 독립적으로 빌드할 수 있습니다.
+
+```bash
+docker build -t codex-ready-frontend frontend
+docker build -t codex-ready-backend backend
+```
+
+현재 AWS에서 사용하는 통합 제품 이미지는 별도 배포 정의로 빌드합니다.
+
+```bash
+docker build -f infra/docker/Dockerfile.production -t codex-ready-production .
+```
+
+### Docker 없이 직접 실행
+
+처음 한 번 의존성을 준비합니다.
 
 ```bash
 nvm install
 nvm use
-npm install
-cp .env.example .env.local
+npm ci --prefix frontend
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r backend/requirements-dev.txt
+cp -n .env.example .env.local
+```
+
+첫 번째 터미널에서 FastAPI를 실행합니다.
+
+```bash
+source .venv/bin/activate
+npm run dev:api
+```
+
+두 번째 터미널에서 Next.js를 실행합니다.
+
+```bash
+nvm use
 npm run dev
 ```
 
-[http://localhost:3000](http://localhost:3000)을 열고 상태 확인은 [http://localhost:3000/api/health](http://localhost:3000/api/health)에서 합니다.
+### 테스트와 제품 빌드
 
 ```bash
+source .venv/bin/activate
 npm test
 npm run build
 npm run check
 ```
 
-`npm run check`에서 AWS CLI만 실패한다면 로컬 개발은 가능합니다. macOS에서는 `brew install awscli`로 설치할 수 있습니다.
+`npm test`는 Next.js 타입·lint와 FastAPI API 테스트를 모두 실행합니다. `npm run check`에서 Docker나 AWS CLI만 실패한다면 Docker 없는 로컬 개발은 가능합니다. macOS에서는 AWS CLI를 `brew install awscli`로 설치할 수 있습니다.
+
+### 로컬 PyTorch 확인
+
+작은 행렬 연산으로 CPU, Apple Silicon MPS 또는 CUDA 장치를 확인하려면 추가 의존성을 설치한 뒤 모드를 바꿉니다.
+
+```bash
+source .venv/bin/activate
+python -m pip install -r backend/requirements-local.txt
+```
+
+```dotenv
+INFERENCE_MODE=local
+```
+
+FastAPI를 다시 시작하면 됩니다. 실제 제품 모델 코드는 `backend/app/providers.py`의 `LocalTorchProvider`에 연결합니다.
 
 ## 2. AWS 크레딧 안전장치
 
@@ -69,7 +153,7 @@ npm run deploy:aws
 이 명령은 다음을 자동으로 처리합니다.
 
 1. ECR 저장소 생성
-2. `linux/amd64` 제품 컨테이너 빌드
+2. Next.js와 FastAPI를 포함한 `linux/amd64` 제품 컨테이너 빌드
 3. 이미지 업로드 및 변경되지 않는 이미지 digest 확인
 4. ECS Express Mode 서비스, 로드 밸런서, 로그, 자동 확장과 필요한 IAM 역할 생성
 5. 공개 HTTPS URL과 상태 확인 URL 출력
@@ -115,12 +199,13 @@ CONFIRM_DESTROY=codex-ready npm run cleanup:aws
 RunPod에서 API key와 endpoint ID를 발급한 뒤 `.env.local`을 채웁니다.
 
 ```dotenv
+INFERENCE_MODE=runpod
 RUNPOD_API_KEY=발급받은_키
 RUNPOD_ENDPOINT_ID=엔드포인트_ID
 RUNPOD_TIMEOUT_MS=90000
 ```
 
-로컬 서버를 다시 시작하면 첫 화면의 RunPod Console에서 호출할 수 있습니다. AWS 배포 명령도 `.env.local`을 읽어 API 키는 SSM SecureString으로 저장한 뒤 ECS 작업에 비밀값으로 주입하고, endpoint ID는 일반 환경 변수로 전달합니다.
+FastAPI와 Next.js를 다시 시작하면 첫 화면의 FastAPI Console에서 호출할 수 있습니다. AWS 배포 명령도 `.env.local`을 읽어 API 키는 SSM SecureString으로 저장한 뒤 ECS 작업에 비밀값으로 주입하고, endpoint ID와 추론 모드는 일반 환경 변수로 전달합니다.
 
 RunPod를 직접 빌드해야 한다면 Apple Silicon에서도 반드시 AMD64로 빌드합니다.
 
@@ -144,7 +229,7 @@ docker build --platform linux/amd64 -f infra/runpod/Dockerfile -t USER/WORKER:VE
 - `.env.local`, AWS 키, RunPod 키를 Git에 커밋하지 않습니다.
 - `NEXT_PUBLIC_` 변수에 비밀값을 넣지 않습니다.
 - 사용자 입력은 길이를 제한하고 서버에서 다시 검사합니다.
-- RunPod 호출은 브라우저가 아니라 `/api/runpod`을 통해서만 합니다.
+- RunPod 호출은 브라우저가 아니라 `/api/inference` → FastAPI를 통해서만 합니다.
 - 팀원이 떠나거나 저장소가 공개되면 발급한 키를 회전합니다.
 
 ## 공식 참고 문서

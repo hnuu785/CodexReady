@@ -8,6 +8,12 @@ Parameters:
     AllowedPattern: "[A-Za-z0-9][A-Za-z0-9-_]{3,39}"
   ImageIdentifier:
     Type: String
+  InferenceMode:
+    Type: String
+    Default: mock
+    AllowedValues:
+      - mock
+      - runpod
   RunpodEndpointId:
     Type: String
     Default: ""
@@ -71,6 +77,10 @@ Resources:
         Environment:
           - Name: NODE_ENV
             Value: production
+          - Name: INFERENCE_MODE
+            Value: !Ref InferenceMode
+          - Name: BACKEND_URL
+            Value: http://127.0.0.1:8000
           - Name: RUNPOD_ENDPOINT_ID
             Value: !Ref RunpodEndpointId
           - Name: RUNPOD_TIMEOUT_MS

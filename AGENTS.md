@@ -6,9 +6,9 @@ Build the smallest reliable product that proves value for one clearly defined us
 
 ## Repository map
 
-- `app/`: Next.js pages and server routes.
-- `components/`: reusable UI components.
-- `lib/`: server integrations and domain logic.
+- `frontend/`: independent Next.js app, including pages, components, server routes, configuration, and Node dependencies.
+- `backend/`: independent FastAPI app, inference providers, Python dependencies, and API tests.
+- `infra/docker/`: combined production image used by the current AWS deployment path.
 - `infra/aws/`: AWS ECS Express Mode infrastructure.
 - `infra/runpod/`: optional RunPod Serverless worker.
 - `docs/`: team decisions and submission evidence.
@@ -52,6 +52,6 @@ When reporting work to the team, lead with what now works, name remaining risk p
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+This block is written and re-added by `next dev` — verify at `frontend/node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
