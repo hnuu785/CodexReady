@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Codex Seoul hackathon starter on Amazon ECS Express Mode
+
+Parameters:
+  AppName:
+    Type: String
+    Default: codex-ready
+    AllowedPattern: "[A-Za-z0-9][A-Za-z0-9-_]{3,39}"
+  ImageIdentifier:
+    Type: String
+  RunpodEndpointId:
+    Type: String
+    Default: ""
+  RunpodApiKeyParameterArn:
+    Type: String
+    Default: ""
+
+Conditions:
+  HasRunpodSecret: !Not [!Equals [!Ref RunpodApiKeyParameterArn, ""]]
+
+Resources:
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: ReadHackathonSecrets
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AppName}/*"
+
+  InfrastructureRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowECSExpressInfrastructure
+            Effect: Allow
+            Principal:
+              Service: ecs.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices
+
+  Service:
+    Type: AWS::ECS::ExpressGatewayService
+    Properties:
+      ServiceName: !Ref AppName
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      InfrastructureRoleArn: !GetAtt InfrastructureRole.Arn
+      Cpu: "256"
+      Memory: "512"
+      HealthCheckPath: /api/health
+      PrimaryContainer:
+        Image: !Ref ImageIdentifier
+        ContainerPort: 3000
+        Environment:
+          - Name: NODE_ENV
+            Value: production
+          - Name: RUNPOD_ENDPOINT_ID
+            Value: !Ref RunpodEndpointId
+          - Name: RUNPOD_TIMEOUT_MS
+            Value: "90000"
+        Secrets: !If
+          - HasRunpodSecret
+          - - Name: RUNPOD_API_KEY
+              ValueFrom: !Ref RunpodApiKeyParameterArn
+          - !Ref AWS::NoValue
+      ScalingTarget:
+        MinTaskCount: 1
+        MaxTaskCount: 2
+        AutoScalingMetric: AVERAGE_CPU
+        AutoScalingTargetValue: 60
+      Tags:
+        - Key: Project
+          Value: !Ref AppName
+        - Key: ManagedBy
+          Value: codex-ready
+
+Outputs:
+  ServiceArn:
+    Value: !GetAtt Service.ServiceArn
+  ServiceUrl:
+    Value: !GetAtt Service.Endpoint

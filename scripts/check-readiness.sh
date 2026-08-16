@@ -36,7 +36,7 @@ echo ""
 echo "핵심 파일"
 check_file package.json
 check_file Dockerfile
-check_file infra/aws/app-runner.yml
+check_file infra/aws/ecs-express.yml
 check_file infra/runpod/Dockerfile
 check_file docs/CODEX_BUILD_LOG.md
 

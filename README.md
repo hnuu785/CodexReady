@@ -1,12 +1,12 @@
 # Codex Community Hackathon Seoul — Developer Starter
 
-처음 만난 4인 팀이 당일 바로 제품 개발을 시작하고 공개 URL까지 만들 수 있는 스타터입니다. 기본 웹 앱과 서버 API는 하나의 Next.js 프로젝트에 있고, AWS App Runner에 컨테이너로 배포합니다. GPU가 필요한 팀은 RunPod Serverless 워커를 선택적으로 연결할 수 있습니다.
+처음 만난 4인 팀이 당일 바로 제품 개발을 시작하고 공개 URL까지 만들 수 있는 스타터입니다. 기본 웹 앱과 서버 API는 하나의 Next.js 프로젝트에 있고, AWS ECS Express Mode에 컨테이너로 배포합니다. GPU가 필요한 팀은 RunPod Serverless 워커를 선택적으로 연결할 수 있습니다.
 
 ## 준비된 것
 
 - 반응형 Next.js 웹 앱과 `/api/health`
 - 브라우저에 키를 노출하지 않는 `/api/runpod` 서버 프록시
-- AWS App Runner + ECR 배포 자동화
+- AWS ECS Express Mode + ECR 배포 자동화
 - AWS 월 사용량 20달러 예산 알림 자동화
 - RunPod GPU 확인용 Serverless 워커
 - GitHub CI, Codex 작업 규칙, 제출 문서 템플릿
@@ -16,7 +16,7 @@
 
 ```text
 브라우저
-  └─ AWS App Runner (Next.js 웹 + API)
+  └─ AWS ECS Express Mode (Next.js 웹 + API)
        ├─ /api/health
        └─ /api/runpod ── 선택 사항 ── RunPod Serverless GPU Worker
 ```
@@ -58,9 +58,9 @@ BUDGET_EMAIL=알림받을주소 npm run budget:aws
 
 50%와 80% 실제 사용, 100% 예상 사용 시 이메일을 받습니다. 이 예산은 크레딧·환불을 빼기 전 비용을 추적하도록 설정했습니다. AWS 비용 데이터와 알림에는 지연이 있으므로 예산 알림은 강제 차단 장치가 아닙니다.
 
-## 3. AWS에 배포 — 약 10분
+## 3. AWS에 배포 — 약 10~15분
 
-Docker Desktop을 켠 뒤 실행합니다.
+Docker Desktop을 켠 뒤 실행합니다. ECS Express Mode는 선택한 리전의 기본 VPC를 사용하므로, 삭제한 적이 있다면 AWS VPC 콘솔에서 기본 VPC를 먼저 다시 생성해야 합니다. 기본 public subnet은 서로 다른 가용 영역에 2개 이상 있어야 하며 각 subnet에 사용 가능한 IPv4 주소가 8개 이상 필요합니다. 배포 명령이 이를 먼저 확인합니다.
 
 ```bash
 npm run deploy:aws
@@ -70,15 +70,15 @@ npm run deploy:aws
 
 1. ECR 저장소 생성
 2. `linux/amd64` 제품 컨테이너 빌드
-3. 이미지 업로드
-4. App Runner 서비스와 최소 권한 역할 생성
-5. 공개 HTTPS URL 출력
+3. 이미지 업로드 및 변경되지 않는 이미지 digest 확인
+4. ECS Express Mode 서비스, 로드 밸런서, 로그, 자동 확장과 필요한 IAM 역할 생성
+5. 공개 HTTPS URL과 상태 확인 URL 출력
 
-업데이트할 때도 같은 명령을 다시 실행하면 새 이미지 태그로 배포됩니다. 기본 오토스케일은 최소 1대, 최대 2대로 제한되어 있습니다.
+업데이트할 때도 같은 명령을 다시 실행하면 새 이미지로 배포됩니다. 기본 크기는 0.25 vCPU/512 MiB이며, 오토스케일은 최소 1개, 최대 2개 작업으로 제한되어 있습니다.
 
 ### 배포 종료 후 반드시 정리
 
-App Runner는 요청이 없어도 최소 인스턴스의 메모리 비용이 발생할 수 있습니다. 제출 확인이 끝나고 서비스를 유지하지 않을 경우 다음 명령으로 App Runner, 역할, ECR 이미지와 저장소, AWS에 저장한 RunPod 키를 삭제합니다.
+ECS Express Mode는 요청이 없어도 최소 작업 1개와 로드 밸런서 비용이 발생할 수 있습니다. 제출 확인이 끝나고 서비스를 유지하지 않을 경우 다음 명령으로 ECS Express Mode 스택, 역할, ECR 이미지와 저장소, AWS에 저장한 RunPod 키를 삭제합니다.
 
 ```bash
 CONFIRM_DESTROY=codex-ready npm run cleanup:aws
@@ -120,7 +120,7 @@ RUNPOD_ENDPOINT_ID=엔드포인트_ID
 RUNPOD_TIMEOUT_MS=90000
 ```
 
-로컬 서버를 다시 시작하면 첫 화면의 RunPod Console에서 호출할 수 있습니다. AWS 배포 명령도 `.env.local`을 읽어 API 키는 SSM SecureString으로, endpoint ID는 일반 설정으로 App Runner에 주입합니다.
+로컬 서버를 다시 시작하면 첫 화면의 RunPod Console에서 호출할 수 있습니다. AWS 배포 명령도 `.env.local`을 읽어 API 키는 SSM SecureString으로 저장한 뒤 ECS 작업에 비밀값으로 주입하고, endpoint ID는 일반 환경 변수로 전달합니다.
 
 RunPod를 직접 빌드해야 한다면 Apple Silicon에서도 반드시 AMD64로 빌드합니다.
 
@@ -149,7 +149,8 @@ docker build --platform linux/amd64 -f infra/runpod/Dockerfile -t USER/WORKER:VE
 
 ## 공식 참고 문서
 
-- [AWS App Runner 시작하기](https://docs.aws.amazon.com/apprunner/latest/dg/getting-started.html)
+- [Amazon ECS Express Mode 시작하기](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/express-service-getting-started.html)
+- [ECS Express Mode CloudFormation 리소스](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ecs-expressgatewayservice.html)
 - [AWS Budget 만들기](https://docs.aws.amazon.com/cost-management/latest/userguide/create-cost-budget.html)
 - [RunPod Serverless endpoint](https://docs.runpod.io/serverless/endpoints/overview)
 - [RunPod GitHub 배포](https://docs.runpod.io/serverless/workers/github-integration)

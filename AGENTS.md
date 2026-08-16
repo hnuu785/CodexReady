@@ -9,7 +9,7 @@ Build the smallest reliable product that proves value for one clearly defined us
 - `app/`: Next.js pages and server routes.
 - `components/`: reusable UI components.
 - `lib/`: server integrations and domain logic.
-- `infra/aws/`: AWS App Runner infrastructure.
+- `infra/aws/`: AWS ECS Express Mode infrastructure.
 - `infra/runpod/`: optional RunPod Serverless worker.
 - `docs/`: team decisions and submission evidence.
 - `scripts/`: readiness, deployment, budget, and cleanup commands.
@@ -20,7 +20,7 @@ Build the smallest reliable product that proves value for one clearly defined us
 2. Prefer one complete vertical flow over several disconnected screens.
 3. Keep third-party secrets on the server. Never add real keys, credentials, tokens, or `.env.local` to Git.
 4. Keep RunPod optional. The core product must still boot and expose `/api/health` without GPU configuration.
-5. Use the existing AWS App Runner path unless the team explicitly decides to change infrastructure.
+5. Use the existing AWS ECS Express Mode path unless the team explicitly decides to change infrastructure.
 6. After a meaningful build milestone, add a concise entry to `docs/CODEX_BUILD_LOG.md`: request, plan, changes, verification, failure/recovery, and evidence.
 7. Record product-scope decisions in `docs/VALUE_VIABILITY.md`, not only in chat.
 
